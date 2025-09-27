@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="TNTConsoleApp/TNTConsoleApp.csproj" Id="c6b72858-c9db-4e4f-84e9-8f2ed3008fa9" />
+  <Project Path="TNTLibrary/TNTLibrary.csproj" Id="54fad60a-115f-4b4f-aef5-0ade1731dfec" />
+  <Project Path="TNTWebApp/TNTWebApp.csproj" Id="36288c5f-c459-43c6-9c3d-ebbb6b07252e" />
+  <Project Path="TNTWFormsApp/TNTWFormsApp.csproj" Id="b5bc31ef-c46f-4ecb-a9e8-2847e6cccd0a" />
+</Solution>

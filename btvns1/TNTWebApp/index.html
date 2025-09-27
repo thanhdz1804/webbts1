@@ -1,0 +1,217 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <title>TNTWebApp – Happiness Checker</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <style>
+        body {
+            font: 14px/1.5 Arial, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+        }
+
+        .wrap {
+            max-width: 720px;
+            margin: 48px auto;
+            background: #111827;
+            padding: 28px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.3);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 22px
+        }
+
+        .card {
+            margin-top: 18px;
+            background: #0b1220;
+            padding: 18px;
+            border-radius: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #93c5fd
+        }
+
+        input[type=text] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #1f2937;
+            background: #0a0f1c;
+            color: #f8fafc;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: 0;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #22c55e;
+            color: #0b1220;
+            font-weight: bold;
+        }
+
+            button:disabled {
+                opacity: .6;
+                cursor: not-allowed
+            }
+
+        .muted {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        .result {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #052e16;
+            color: #a7f3d0;
+            display: none;
+            white-space: pre-wrap;
+        }
+
+        footer {
+            text-align: center;
+            margin: 32px 0 12px;
+            color: #64748b;
+            font-size: 12px
+        }
+
+        .watermark {
+            opacity: .85
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>Happiness Checker</h1>
+        <div class="muted">Nhập tên của bạn → JS tiền xử lý → gọi <code>api.ashx</code> → nhận JSON và hiển thị.</div>
+
+        <div class="card">
+            <label for="name">Họ tên</label>
+            <input id="name" type="text" placeholder="Ví dụ: Tran Nguyen" />
+
+            <div class="row">
+                <button id="btnCheck">Tính chỉ số vui vẻ</button>
+                <span id="status" class="muted"></span>
+            </div>
+
+            <div id="result" class="result"></div>
+        </div>
+    </div>
+
+    <footer class="watermark">⚡ TNT Lab – btvns1</footer>
+
+    <script>
+        (function () {
+            var nameInput = document.getElementById('name');
+            var btn = document.getElementById('btnCheck');
+            var status = document.getElementById('status');
+            var result = document.getElementById('result');
+
+            function preprocessName(s) {
+                // JS tiền xử lý: trim, collapse spaces, viết hoa chữ đầu mỗi từ
+                s = (s || '').replace(/\s+/g, ' ').trim();
+                // Unicode-aware capitalization (hiện đại browsers)
+                try {
+                    return s.replace(/\b(\p{L})(\p{L}*)/gu, function (_, a, b) { return a.toUpperCase() + b.toLowerCase(); });
+                } catch (e) {
+                    // fallback cho browsers cũ: đơn giản hoá
+                    return s.split(' ').map(function (w) {
+                        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+                    }).join(' ');
+                }
+            }
+
+            function setBusy(b) {
+                btn.disabled = b;
+                status.textContent = b ? 'Đang xử lý…' : '';
+            }
+
+            function showResult(text) {
+                result.style.display = 'block';
+                result.textContent = text;
+            }
+
+            btn.addEventListener('click', function () {
+                result.style.display = 'none';
+                var raw = nameInput.value;
+                var name = preprocessName(raw);
+                nameInput.value = name; // hiển thị lại sau tiền xử lý
+
+                if (!name) {
+                    showResult('Vui lòng nhập tên trước khi gửi.');
+                    return;
+                }
+
+                setBusy(true);
+
+                // tạo XMLHttpRequest đúng thứ tự
+                var xhr = new XMLHttpRequest();
+                // Dùng POST vì server .ashx có thể mong POST; nếu muốn GET, đổi thành 'GET' và gắn query string
+                xhr.open('POST', './api.ashx', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+
+                // Xử lý thành công (onload)
+                xhr.onload = function () {
+                    setBusy(false);
+                    console.log('XHR status:', xhr.status);
+                    console.log('Response headers:', xhr.getAllResponseHeaders());
+                    console.log('Response text:', xhr.responseText);
+
+                    // nếu server trả status khác 200 thì show lỗi server
+                    if (xhr.status < 200 || xhr.status >= 300) {
+                        showResult('Lỗi server. Status: ' + xhr.status + '. Response: ' + xhr.responseText);
+                        return;
+                    }
+
+                    // Cố gắng parse JSON
+                    var parsed = null;
+                    var ct = (xhr.getResponseHeader('Content-Type') || '').toLowerCase();
+                    try {
+                        parsed = JSON.parse(xhr.responseText);
+                    } catch (e) {
+                        // không phải JSON - hiển thị raw để debug
+                        showResult('Server không trả JSON hợp lệ. Response raw:\n' + xhr.responseText);
+                        return;
+                    }
+
+                    // Kiểm tra cấu trúc JSON theo chuẩn app của bạn
+                    // Mình dùng: { ok: true, message: "...", index: 123 }
+                    if (parsed && parsed.ok) {
+                        showResult((parsed.message || 'OK') + ' 🎉 (index = ' + (parsed.index == null ? 'n/a' : parsed.index) + ')');
+                    } else {
+                        showResult('Lỗi: ' + (parsed.error || parsed.message || 'không xác định'));
+                    }
+                };
+
+                xhr.onerror = function () {
+                    setBusy(false);
+                    console.error('XHR error', arguments);
+                    showResult('Không thể kết nối tới server (network error).');
+                };
+
+                // Gửi dữ liệu
+                var body = 'name=' + encodeURIComponent(name) + '&client=web';
+                xhr.send(body);
+            });
+        })();
+    </script>
+</body>
+</html>
